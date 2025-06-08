@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>匿名質問箱 UI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">みんなのひとこと広場</h1>
+    <p class="app-description">気軽につぶやけるミニチャット。思ったことを自由に投稿しよう！</p>
+  </header>
+
+  <div id="form">
+    <input type="text" id="questionInput" placeholder="質問を入力してください">
+    <button id="sendBtn">送信</button>
+  </div>
+
+  <div id="questionsArea">
+    <!-- 質問一覧がここに表示される -->
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+
+      apiKey:
+  authDomain:
+  projectId:
+  storageBucket:
+  messagingSenderId:
+  appId: 
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const qCol = collection(db, "questions");
+
+    // 質問を投稿
+    document.getElementById("sendBtn").addEventListener("click", async () => {
+      const input = document.getElementById("questionInput");
+      if (input.value.trim() === "") return;
+
+      await addDoc(qCol, {
+        text: input.value,
+        createdAt: serverTimestamp(),
+        likes: 0
+      });
+      input.value = "";
+    });
+
+    // 質問を表示（リアルタイム）
+    const q = query(qCol, orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+      const area = document.getElementById("questionsArea");
+      area.innerHTML = "";
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const div = document.createElement("div");
+        div.className = "bubble-container question";
+        div.innerHTML = `
+          <img src="img/cat.png" class="avatar" alt="猫キャラ">
+          <div class="bubble pink">
+            <p>${data.text}</p>
+            <div class="reactions">
+              <button class="likeBtn" data-id="${docSnap.id}">❤️ ${data.likes}</button>
+            </div>
+          </div>`;
+
+        area.appendChild(div);
+      });
+
+      const likeBtns = document.querySelectorAll(".likeBtn");
+      likeBtns.forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const docRef = doc(db, "questions", btn.dataset.id);
+          const currentLikes = parseInt(btn.textContent.replace(/[^0-9]/g, ''));
+          await updateDoc(docRef, { likes: currentLikes + 1 });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
